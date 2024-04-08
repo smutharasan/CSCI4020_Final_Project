@@ -173,6 +173,7 @@ class ForLoopExpr(
     val body: Expr
 ): Expr() {
     override fun eval(runtime: Runtime): Data {
+        println(runtime) 
         val startValue = startExpr.eval(runtime)
         val endValue = endExpr.eval(runtime)
 
@@ -309,5 +310,77 @@ class While(val cond: Expr, val body: Expr) : Expr() {
             iter--
         }
         return result
+    }
+}
+
+
+class MethodCallExpr(
+    val target: Expr, // The expression on which the method is called
+    val methodName: String, // The name of the method being called
+    val arguments: List<Expr> // The arguments passed to the method
+) : Expr() {
+
+    override fun eval(runtime: Runtime): Data {
+        val targetData = target.eval(runtime)
+        
+        if (targetData == null) {
+            throw RuntimeException("Attempted to call method on null")
+        }
+        
+        // Check if the target expression evaluates to ArrayData
+        if (targetData is ArrayData) {
+            return when (methodName) {
+                "get" -> {
+                    // Expecting a single integer argument for index
+                    val index = arguments[0].eval(runtime) as? IntData
+                        ?: throw IllegalArgumentException("get method requires an integer index")
+                    targetData.get(index.value)
+                }
+                "size" -> {
+                    println(runtime)
+                    // No arguments expected for size
+                    if (arguments.isNotEmpty()) throw IllegalArgumentException("size method does not take arguments")
+                    IntData(targetData.size())
+                }
+                "map", "filter" -> {
+                    // These methods expect a single lambda argument
+                    if (arguments.size != 1 || arguments[0] !is LambdaExpr)
+                        throw IllegalArgumentException("$methodName method requires a single lambda argument")
+
+                    val lambda = arguments[0] as LambdaExpr
+                    when (methodName) {
+                        "map" -> targetData.map { data -> lambda.invoke(runtime, listOf(data)) }
+                        "filter" -> targetData.filter { data -> (lambda.invoke(runtime, listOf(data)) as BooleanData).value }
+                        else -> throw IllegalStateException("Unexpected method name: $methodName")
+                    }
+                }
+                else -> throw UnsupportedOperationException("Method $methodName is not supported on arrays")
+            }
+        } else {
+            throw IllegalArgumentException("Method $methodName is only supported on arrays")
+        }
+    }
+}
+
+class LambdaExpr(
+    val parameters: List<String>, // Parameters accepted by the lambda
+    val body: Expr // The body of the lambda, potentially a Block for multiple expressions
+) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        // This method would be used if the lambda is being evaluated directly,
+        // but typically we'll use `invoke` with arguments for lambdas.
+        throw UnsupportedOperationException("Direct evaluation of a lambda expression is not supported.")
+    }
+
+    fun invoke(runtime: Runtime, args: List<Data>): Data {
+        if (args.size != parameters.size) {
+            throw IllegalArgumentException("Lambda expected ${parameters.size} arguments, but got ${args.size}.")
+        }
+        // Create a new map of bindings from parameters to argument values
+        val bindings = parameters.zip(args).associate { it.first to it.second }
+        // Create a new subscope in the runtime for the lambda execution
+        val lambdaRuntime = runtime.subscope(bindings)
+        // Evaluate the lambda body in the new subscope and return the result
+        return body.eval(lambdaRuntime)
     }
 }

@@ -66,6 +66,9 @@ expression returns [Expr expr] // Stay with 'expression'
         }
         $expr = new Compare(comparator, $left.expr, $right.expr); 
     }
+    | expression '.' methodName=ID '(' arguments ')' {
+        $expr = new MethodCallExpr($expression.expr, $methodName.text, $arguments.args);
+    }
     | ID '(' arguments ')' {$expr = new Invoke($ID.text, $arguments.args);}
     ;
 
@@ -86,10 +89,9 @@ arrayLiteral returns [Expr expr]
         $expr = new ArrayExpr(exprList);
     }
     ;
-
     
 loop returns [Expr expr]
-    : 'for' '(' ID 'in' startexpr=expression '..' endexpr=expression ')' '{' statements+=statement* '}' {
+    : 'for' '(' ID 'in' startexpr=expression RANGE_OP endexpr=expression ')' '{' statements+=statement* '}' {
         List<Expr> exprList = new ArrayList<>();
         for (StatementContext stmt : $statements) {
             exprList.add(stmt.expr);
@@ -141,6 +143,12 @@ paramList returns [List<String> paramNames]
       )?
     ;
 
+methodCall returns [Expr expr]
+    : expression '.' methodName=ID '(' arguments ')' {
+        $expr = new MethodCallExpr($expression.expr, $methodName.text, $arguments.args);
+      }
+    ;
+    
 ifelse returns [Expr expr]
     : 'if' '(' condition=expression ')' '{' trueStatements+=statement* '}' ('else' '{' falseStatements+=statement* '}')? {
         List<Expr> trueExprList = new ArrayList<>();
@@ -160,16 +168,16 @@ ifelse returns [Expr expr]
     ;
 
 
+RANGE_OP: '..';
+LBRACK: '[' ; // Left bracket
+RBRACK: ']' ; // Right bracket
+COMMA: ',' ;  // Comma
 
 NUMBER: [0-9]+ ;                        // Match integers
 STRING: '"' ( ~["\\] | '\\' . )* '"' ;  // Match string literals
-DOUBLE: [0-9]+ '.' [0-9]* | '.' [0-9]+; // Match doubles
 BOOLEAN: 'true' | 'false';              // Match boolean literals
 ID: [a-zA-Z_][a-zA-Z_0-9]* ;            // Match identifiers
 WS: [ \t\r\n]+ -> skip ;                // Skip whitespace
 COMMENT: '/*' .*? '*/' -> skip ;        // Skip block comments
 LINE_COMMENT: '//' ~[\r\n]* -> skip ;   // Skip line comments
-
-LBRACK: '[' ; // Left bracket
-RBRACK: ']' ; // Right bracket
-COMMA: ',' ;  // Comma
+DOUBLE: [0-9]+ '.' [0-9]+ | '0' '.' [0-9]+;
