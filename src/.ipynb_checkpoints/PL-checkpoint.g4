@@ -73,7 +73,20 @@ value returns [Expr expr]
     : NUMBER { $expr = new IntExpr($NUMBER.text); } // Directly pass the string
     | STRING { $expr = new StringExpr($STRING.text.substring(1, $STRING.text.length() - 1)); }
     | BOOLEAN { $expr = new BooleanLiteral($BOOLEAN.text); }
+    | DOUBLE { $expr = new DoubleExpr($DOUBLE.text); }
+    | arrayLiteral { $expr = $arrayLiteral.expr; }
     ;
+    
+arrayLiteral returns [Expr expr]
+    : LBRACK (elements+=expression (COMMA elements+=expression)*)? RBRACK {
+        List<Expr> exprList = new ArrayList<>();
+        for (ExpressionContext element : $elements) {
+            exprList.add(element.expr); // Convert each ExpressionContext to Expr
+        }
+        $expr = new ArrayExpr(exprList);
+    }
+    ;
+
     
 loop returns [Expr expr]
     : 'for' '(' ID 'in' startexpr=expression '..' endexpr=expression ')' '{' statements+=statement* '}' {
@@ -150,8 +163,13 @@ ifelse returns [Expr expr]
 
 NUMBER: [0-9]+ ;                        // Match integers
 STRING: '"' ( ~["\\] | '\\' . )* '"' ;  // Match string literals
+DOUBLE: [0-9]+ '.' [0-9]* | '.' [0-9]+; // Match doubles
 BOOLEAN: 'true' | 'false';              // Match boolean literals
 ID: [a-zA-Z_][a-zA-Z_0-9]* ;            // Match identifiers
 WS: [ \t\r\n]+ -> skip ;                // Skip whitespace
 COMMENT: '/*' .*? '*/' -> skip ;        // Skip block comments
 LINE_COMMENT: '//' ~[\r\n]* -> skip ;   // Skip line comments
+
+LBRACK: '[' ; // Left bracket
+RBRACK: ']' ; // Right bracket
+COMMA: ',' ;  // Comma

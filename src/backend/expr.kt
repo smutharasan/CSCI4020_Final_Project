@@ -4,14 +4,6 @@ abstract class Expr {
     abstract fun eval(runtime:Runtime):Data
 }
 
-// An expression representing a parenthesized expression
-class ParenExpr(val expr: Expr) : Expr() {
-    override fun eval(runtime: Runtime): Data {
-        // Simply evaluates the contained expression
-        return expr.eval(runtime)
-    }
-}
-
 class Block(val exprs:List<Expr>):Expr() {
     override fun eval(runtime:Runtime):Data
     = exprs.map { it.eval(runtime) }.last()
@@ -27,6 +19,12 @@ class IntExpr(val value: String) : Expr() {
     = IntData(Integer.parseInt(value))
 }
 
+// An expression representing a literal double value
+class DoubleExpr(val value: String) : Expr() {
+    override fun eval(runtime:Runtime): Data
+        = DoubleData(value.toDouble())
+}
+
 // An expression representing a literal string value
 class StringExpr(val value: String) : Expr() {
     override fun eval(runtime: Runtime): Data = StringData(value)
@@ -35,6 +33,15 @@ class StringExpr(val value: String) : Expr() {
 class BooleanLiteral(val lexeme:String): Expr() {
     override fun eval(runtime:Runtime): Data
     = BooleanData(lexeme.equals("true"))
+}
+
+class ArrayExpr(val elements: List<Expr>) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        // Evaluate each element of the expression list to obtain a list of Data objects
+        val evaluatedElements = elements.map { it.eval(runtime) }
+        // Return an ArrayData object encapsulating the evaluated elements
+        return ArrayData(evaluatedElements)
+    }
 }
 
 // An expression representing an assignment
@@ -101,7 +108,8 @@ class Arithmetics(
     override fun eval(runtime: Runtime): Data {
         val x = left.eval(runtime)
         val y = right.eval(runtime)
-        
+
+        // Handle operations for both IntData and DoubleData
         return when (op) {
             Operator.Mul -> handleMultiplication(x, y)
             Operator.Add, Operator.Sub, Operator.Div -> handleArithmetic(x, y, op)
@@ -110,34 +118,52 @@ class Arithmetics(
     }
 
     private fun handleMultiplication(x: Data, y: Data): Data {
-        // Check if one operand is StringData and the other is IntData, for commutative operation
+        // Supporting multiplication for DoubleData as well
         return when {
             x is StringData && y is IntData -> StringData(x.value.repeat(y.value))
             x is IntData && y is StringData -> StringData(y.value.repeat(x.value))
             x is IntData && y is IntData -> IntData(x.value * y.value)
+            x is DoubleData && y is DoubleData -> DoubleData(x.value * y.value)
+            x is IntData && y is DoubleData -> DoubleData(x.value * y.value)
+            x is DoubleData && y is IntData -> DoubleData(x.value * y.value)
             else -> throw Exception("Invalid types for multiplication")
         }
     }
 
     private fun handleArithmetic(x: Data, y: Data, op: Operator): Data {
-        if (x !is IntData || y !is IntData) {
-            throw Exception("Arithmetic operations other than multiplication can only handle integers")
-        }
-
-        return when (op) {
-            Operator.Add -> IntData(x.value + y.value)
-            Operator.Sub -> IntData(x.value - y.value)
-            Operator.Div -> {
-                if (y.value != 0) {
-                    IntData(x.value / y.value)
-                } else {
-                    throw Exception("cannot divide by zero")
-                }
+        // Extending arithmetic operations to handle DoubleData
+        return when {
+            x is IntData && y is IntData -> {
+                performIntArithmetic(x.value, y.value, op)
             }
-            else -> throw Exception("Unknown arithmetic operator")
+            x is DoubleData && y is DoubleData -> {
+                performDoubleArithmetic(x.value, y.value, op)
+            }
+            x is IntData && y is DoubleData -> {
+                performDoubleArithmetic(x.value.toDouble(), y.value, op)
+            }
+            x is DoubleData && y is IntData -> {
+                performDoubleArithmetic(x.value, y.value.toDouble(), op)
+            }
+            else -> throw Exception("Unsupported types for arithmetic operation")
         }
     }
+
+    private fun performIntArithmetic(x: Int, y: Int, op: Operator): IntData = when (op) {
+        Operator.Add -> IntData(x + y)
+        Operator.Sub -> IntData(x - y)
+        Operator.Div -> if (y != 0) IntData(x / y) else throw Exception("Cannot divide by zero")
+        else -> throw Exception("Unknown arithmetic operator")
+    }
+
+    private fun performDoubleArithmetic(x: Double, y: Double, op: Operator): DoubleData = when (op) {
+        Operator.Add -> DoubleData(x + y)
+        Operator.Sub -> DoubleData(x - y)
+        Operator.Div -> if (y != 0.0) DoubleData(x / y) else throw Exception("Cannot divide by zero")
+        else -> throw Exception("Unknown arithmetic operator")
+    }
 }
+
 
 
 class ForLoopExpr(
