@@ -53,11 +53,18 @@ expression returns [Expr expr] // Stay with 'expression'
         $expr = new Arithmetics($op.text.equals("+") ? Operator.Add : Operator.Sub, $left.expr, $right.expr); 
     }
     | left=expression '++' right=expression { $expr = new ConcatExpr($left.expr, $right.expr); }
-    | left=expression op=('<'|'>') right=expression { 
-        $expr = new Compare(
-            $op.text.equals("<") ? backend.Comparator.LT : backend.Comparator.GT, 
-            $left.expr, $right.expr
-        ); 
+    | left=expression op=('<'|'>'|'<='|'>='|'!='|'==') right=expression { 
+        backend.Comparator comparator = null; // Initialize with null
+        switch ($op.text) {
+            case "<": comparator  = backend.Comparator.LT; break;
+            case ">": comparator  = backend.Comparator.GT; break;
+            case "<=": comparator = backend.Comparator.LE; break;
+            case ">=": comparator = backend.Comparator.GE; break;
+            case "!=": comparator = backend.Comparator.NE; break;
+            case "==": comparator = backend.Comparator.EQ; break;
+            default: throw new IllegalArgumentException("Unsupported operator: " + $op.text);
+        }
+        $expr = new Compare(comparator, $left.expr, $right.expr); 
     }
     | ID '(' arguments ')' {$expr = new Invoke($ID.text, $arguments.args);}
     ;
