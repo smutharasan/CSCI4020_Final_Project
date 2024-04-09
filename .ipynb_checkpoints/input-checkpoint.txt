@@ -1,0 +1,14 @@
+x = 5;
+y = 120;
+z = 3.14;
+a = 4244.44242;
+b_array = [a,x,y + y,(z), "dog " ++ "woof " ++ "woof" ];
+
+print(b_array);
+//print(([a,x,y + y,(z), "dog " ++ "woof " ++ "woof" ].size()));
+
+while (x < (y / 10)) {
+    print("Hello world!");
+    x = x + 1;
+    print(3.2 * 2);
+}

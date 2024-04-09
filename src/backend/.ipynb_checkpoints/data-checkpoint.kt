@@ -28,13 +28,19 @@ data class BooleanData(val value: Boolean) : Data() {
 }
 
 // Implement the function data class
-data class FunctionData(val parameters: List<String>, val body: Expr) : Data() {
-    override fun toString(): String = "Function(${parameters.joinToString(", ")})"
+class FuncData(
+    val name: String,
+    val params: List<String>,
+    val body: Expr
+): Data() {
+    override fun toString()
+    = params.joinToString(", ").let {
+        "$name($it) { ... }"
+    }
 }
 
-
 // ArrayData class to hold an array of Data objects
-data class ArrayData(val elements: List<Data>) : Data() {
+class ArrayData(val elements: List<Data>) : Data() {
     // Get an element at a specific index
     fun get(index: Int): Data {
         if (index < 0 || index >= elements.size) {

@@ -197,17 +197,6 @@ class ForLoopExpr(
     }
 }
 
-class FuncData(
-    val name: String,
-    val params: List<String>,
-    val body: Expr
-): Data() {
-    override fun toString()
-    = params.joinToString(", ").let {
-        "$name($it) { ... }"
-    }
-}
-
 class Declare(
     val name: String,
     val params: List<String>,
@@ -215,32 +204,60 @@ class Declare(
 ): Expr() {
     override fun eval(runtime:Runtime):Data
     = FuncData(name, params, body).also {
+        if(name == null){
+            throw Exception("$name does not exist")
+        }
         runtime.symbolTable[name] = it
     }
 }
 
-class Invoke(val name:String, val args:List<Expr>):Expr() {
-    override fun eval(runtime:Runtime):Data {
-        val func:Data? = runtime.symbolTable[name]
-        if(func == null) {
-            throw Exception("$name does not exist")
+class Invoke(val name: String, val args: List<Expr>?): Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val func = runtime.symbolTable[name]
+        if (func == null || func !is FuncData) {
+            throw Exception("Function '$name' is not defined.")
         }
-        if(func !is FuncData) {
-            throw Exception("$name is not a function.")
+        val evaluatedArgs = args?.map { it.eval(runtime) } ?: emptyList()
+        // Ensure the number of provided arguments matches the function's parameters
+        if (func.params.size != evaluatedArgs.size) {
+            throw Exception("Function '$name' expects ${func.params.size} arguments but received ${evaluatedArgs.size}.")
         }
-        if(func.params.size != args.size) {
-            throw Exception(
-                "$name expects ${func.params.size} arguments "
-                + "but received ${args.size}"
-            )
-        }
-        
-        val r = runtime.subscope(
-            func.params.zip(args.map {it.eval(runtime)}).toMap()
-        )
-        return func.body.eval(r)
+
+        val functionScope = runtime.subscope(func.params.zip(evaluatedArgs).toMap())
+        return func.body.eval(functionScope)
     }
 }
+
+class MethodCallExpr(
+    val target: Expr, // The target object of the method call
+    val methodName: String, // The name of the method being called
+    val arguments: List<Expr> // The arguments passed to the method
+) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        println(runtime) 
+        val targetData = target.eval(runtime)
+
+        if (targetData !is ArrayData) {
+            throw IllegalArgumentException("This is not a array. Please check again")
+        }
+
+        var result: Data = None
+        return when (methodName) {
+                "size" -> {
+                    // Ensure that no arguments are provided for the size method
+                    if (arguments.isNotEmpty()) {
+                        throw IllegalArgumentException("size method does not take arguments")
+                    }
+                    IntData(targetData.size())
+                }
+                // Add more cases here for other array methods or methods on different types
+                else -> throw UnsupportedOperationException("Method $methodName is not supported on arrays")
+        }
+
+    }
+}
+
+
 
 enum class Comparator {
     LT,
@@ -313,54 +330,6 @@ class While(val cond: Expr, val body: Expr) : Expr() {
     }
 }
 
-
-class MethodCallExpr(
-    val target: Expr, // The expression on which the method is called
-    val methodName: String, // The name of the method being called
-    val arguments: List<Expr> // The arguments passed to the method
-) : Expr() {
-
-    override fun eval(runtime: Runtime): Data {
-        val targetData = target.eval(runtime)
-        
-        if (targetData == null) {
-            throw RuntimeException("Attempted to call method on null")
-        }
-        
-        // Check if the target expression evaluates to ArrayData
-        if (targetData is ArrayData) {
-            return when (methodName) {
-                "get" -> {
-                    // Expecting a single integer argument for index
-                    val index = arguments[0].eval(runtime) as? IntData
-                        ?: throw IllegalArgumentException("get method requires an integer index")
-                    targetData.get(index.value)
-                }
-                "size" -> {
-                    println(runtime)
-                    // No arguments expected for size
-                    if (arguments.isNotEmpty()) throw IllegalArgumentException("size method does not take arguments")
-                    IntData(targetData.size())
-                }
-                "map", "filter" -> {
-                    // These methods expect a single lambda argument
-                    if (arguments.size != 1 || arguments[0] !is LambdaExpr)
-                        throw IllegalArgumentException("$methodName method requires a single lambda argument")
-
-                    val lambda = arguments[0] as LambdaExpr
-                    when (methodName) {
-                        "map" -> targetData.map { data -> lambda.invoke(runtime, listOf(data)) }
-                        "filter" -> targetData.filter { data -> (lambda.invoke(runtime, listOf(data)) as BooleanData).value }
-                        else -> throw IllegalStateException("Unexpected method name: $methodName")
-                    }
-                }
-                else -> throw UnsupportedOperationException("Method $methodName is not supported on arrays")
-            }
-        } else {
-            throw IllegalArgumentException("Method $methodName is only supported on arrays")
-        }
-    }
-}
 
 class LambdaExpr(
     val parameters: List<String>, // Parameters accepted by the lambda

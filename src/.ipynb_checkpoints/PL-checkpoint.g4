@@ -27,7 +27,6 @@ program returns [Expr expr]
 statement returns [Expr expr]
     : assignment (';'|)  { $expr = $assignment.expr; }
     | expression ';'  { $expr = $expression.expr; } // Keep using 'expression'
-    | expression ' ;'  { $expr = $expression.expr; } // Keep using 'expression'
     | 'print' '(' expression ')' (';'|) { $expr = new PrintExpr($expression.expr); }
     | loop { $expr = $loop.expr; }
     | function { $expr = $function.funcResult;}
@@ -41,16 +40,16 @@ assignment returns [Expr expr]
     ;
 
 expression returns [Expr expr] // Stay with 'expression'
-    : '(' expression ')' { $expr = $expression.expr; }
-    | value            { $expr = $value.expr; }
-    | ID               { $expr = new VariableExpr($ID.text); }
-    // Update arithmetic expressions to use Arithmetics class
-    // Corrected expressions for arithmetic operations
+    : '(' expression ')'   { $expr = $expression.expr; }
+    | functionCall { $expr = $functionCall.expr; }
     | left=expression op=('*'|'/') right=expression { 
         $expr = new Arithmetics($op.text.equals("*") ? Operator.Mul : Operator.Div, $left.expr, $right.expr); 
     }
     | left=expression op=('+'|'-') right=expression { 
         $expr = new Arithmetics($op.text.equals("+") ? Operator.Add : Operator.Sub, $left.expr, $right.expr); 
+    }
+    | expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
+        $expr = new MethodCallExpr($expression.expr, $ID.text, $arguments.args);
     }
     | left=expression '++' right=expression { $expr = new ConcatExpr($left.expr, $right.expr); }
     | left=expression op=('<'|'>'|'<='|'>='|'!='|'==') right=expression { 
@@ -66,12 +65,18 @@ expression returns [Expr expr] // Stay with 'expression'
         }
         $expr = new Compare(comparator, $left.expr, $right.expr); 
     }
-    | expression '.' methodName=ID '(' arguments ')' {
-        $expr = new MethodCallExpr($expression.expr, $methodName.text, $arguments.args);
-    }
-    | ID '(' arguments ')' {$expr = new Invoke($ID.text, $arguments.args);}
+    | value            { $expr = $value.expr; }
+    | ID               { $expr = new VariableExpr($ID.text); }
     ;
 
+parenExpr returns [Expr expr]:
+    LPARANTHESIS expression RPARANTHESIS { $expr = $expression.expr; }
+    ;
+
+functionCall returns [Expr expr]:
+    ID LPARANTHESIS arguments RPARANTHESIS {$expr = new Invoke($ID.text, $arguments.args);}
+    ;
+    
 value returns [Expr expr]
     : NUMBER { $expr = new IntExpr($NUMBER.text); } // Directly pass the string
     | STRING { $expr = new StringExpr($STRING.text.substring(1, $STRING.text.length() - 1)); }
@@ -112,36 +117,42 @@ whileloop returns [Expr expr]
     ;
 
 arguments returns [List<Expr> args]
-    : (first=expression (',' others+=expression)*)? {
+    : (expressionList+=expression (',' expressionList+=expression)*)? {
         $args = new ArrayList<>();
-        if ($first.expr != null) { // Check if at least one expression is matched
-            $args.add($first.expr); // Add the first matched expression to the list
-        }
-        if ($others != null) { // Check if there are additional expressions matched
-            for (ExpressionContext exprCtx : $others) { // Iterate over the additional expressions
-                $args.add(exprCtx.expr); // Add each to the list
+        if ($expressionList != null) { // Check if any expressions were matched
+            for (ExpressionContext exprCtx : $expressionList) {
+                if (exprCtx != null && exprCtx.expr != null) {
+                    // Safely add the expression's corresponding Expr object
+                    $args.add(exprCtx.expr);
+                }
             }
         }
     }
     ;
 
 
+
 function returns [Expr funcResult]
-    : 'function' ID '(' params=paramList ')' '{' statements+=statement* '}' {
+    : 'function' ID '(' params=parameters ')' '{' statements+=statement* '}' {
             List<Expr> exprList = new ArrayList<>();
             for (StatementContext stmt : $statements) {
                 exprList.add(stmt.expr);
             } // This closing brace ends the for-loop
-            $funcResult = new Declare($ID.text, $params.paramNames, new Block(exprList));
+            $funcResult = new Declare($ID.text, $params.ids, new Block(exprList));
         }
     ;
     
-paramList returns [List<String> paramNames]
-    : { $paramNames = new ArrayList<>(); } // Initialize the list
-      (id=ID { $paramNames.add($id.text); } // Add the first matched ID
-      (',' id=ID { $paramNames.add($id.text); })* // Add subsequent matched IDs
-      )?
-    ;
+parameters returns [List<String> ids]: (first=ID (',' rest+=ID)*)? {
+    $ids = new ArrayList<>();
+    if ($first != null) {
+        $ids.add($first.text);
+        if ($rest != null) {
+            for (Token id : $rest) {
+                $ids.add(id.getText());
+            }
+        }
+    }
+};
 
 methodCall returns [Expr expr]
     : expression '.' methodName=ID '(' arguments ')' {
@@ -169,8 +180,13 @@ ifelse returns [Expr expr]
 
 
 RANGE_OP: '..';
+DOT_OP: '.';
 LBRACK: '[' ; // Left bracket
 RBRACK: ']' ; // Right bracket
+
+LPARANTHESIS: '(';
+RPARANTHESIS: ')';
+
 COMMA: ',' ;  // Comma
 
 NUMBER: [0-9]+ ;                        // Match integers
