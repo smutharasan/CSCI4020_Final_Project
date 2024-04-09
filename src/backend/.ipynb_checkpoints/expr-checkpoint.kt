@@ -35,6 +35,64 @@ class BooleanLiteral(val lexeme:String): Expr() {
     = BooleanData(lexeme.equals("true"))
 }
 
+class LogicalNotExpr(val operand: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val operandVal = operand.eval(runtime)
+        
+        // Assuming BooleanData represents boolean values in your language
+        // and it has a 'value' property that is the actual boolean value.
+        if (operandVal is BooleanData) {
+            return BooleanData(!operandVal.value)
+        } else {
+            throw IllegalArgumentException("Logical NOT operator requires a boolean operand.")
+        }
+    }
+}
+
+class LogicalAndExpr(val left: Expr, val right: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val leftVal = left.eval(runtime)
+
+        if (leftVal !is BooleanData) {
+            throw IllegalArgumentException("Left operand of AND is not boolean.")
+        }
+        // Use short-circuit logic for logical AND
+        if (!leftVal.value) {
+            return BooleanData(false)  // If leftVal is false, return false without evaluating right operand
+        }
+
+        val rightVal = right.eval(runtime)
+        if (rightVal !is BooleanData) {
+            throw IllegalArgumentException("Right operand of AND is not boolean.")
+        }
+
+        return BooleanData(leftVal.value && rightVal.value)
+    }
+}
+
+
+class LogicalOrExpr(val left: Expr, val right: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val leftVal = left.eval(runtime)
+
+        if (leftVal !is BooleanData) {
+            throw IllegalArgumentException("Left operand of OR is not boolean.")
+        }
+        // Use short-circuit logic for logical OR
+        if (leftVal.value) {
+            return BooleanData(true)  // If leftVal is true, return true without evaluating right operand
+        }
+
+        val rightVal = right.eval(runtime)
+        if (rightVal !is BooleanData) {
+            throw IllegalArgumentException("Right operand of OR is not boolean.")
+        }
+
+        return BooleanData(rightVal.value)  // Corrected to evaluate right operand correctly
+    }
+}
+
+
 class ArrayExpr(val elements: List<Expr>) : Expr() {
     override fun eval(runtime: Runtime): Data {
         // Evaluate each element of the expression list to obtain a list of Data objects

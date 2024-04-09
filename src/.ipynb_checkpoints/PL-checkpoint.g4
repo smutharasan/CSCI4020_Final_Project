@@ -42,6 +42,7 @@ assignment returns [Expr expr]
 expression returns [Expr expr] // Stay with 'expression'
     : '(' expression ')'   { $expr = $expression.expr; }
     | functionCall { $expr = $functionCall.expr; }
+    | NOT_OP expression    { $expr = new LogicalNotExpr($expression.expr); } // Handling logical NOT
     | left=expression op=('*'|'/') right=expression { 
         $expr = new Arithmetics($op.text.equals("*") ? Operator.Mul : Operator.Div, $left.expr, $right.expr); 
     }
@@ -50,6 +51,12 @@ expression returns [Expr expr] // Stay with 'expression'
     }
     | expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
         $expr = new MethodCallExpr($expression.expr, $ID.text, $arguments.args);
+    }
+    | left=expression AND_OP right=expression {
+        $expr = new LogicalAndExpr($left.expr, $right.expr);
+    }
+    | left=expression OR_OP right=expression {
+        $expr = new LogicalOrExpr($left.expr, $right.expr);
     }
     | left=expression '++' right=expression { $expr = new ConcatExpr($left.expr, $right.expr); }
     | left=expression op=('<'|'>'|'<='|'>='|'!='|'==') right=expression { 
@@ -181,6 +188,10 @@ ifelse returns [Expr expr]
 
 RANGE_OP: '..';
 DOT_OP: '.';
+AND_OP: '&&';
+OR_OP: '||';
+NOT_OP: '!';
+
 LBRACK: '[' ; // Left bracket
 RBRACK: ']' ; // Right bracket
 
