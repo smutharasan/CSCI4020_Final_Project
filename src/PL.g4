@@ -36,8 +36,10 @@ statement returns [Expr expr]
 
     
 assignment returns [Expr expr]
-    : ID '=' expression { $expr = new AssignmentExpr($ID.text, $expression.expr); }
+    : type ID  '=' expression { $expr = new AssignmentExpr($ID.text, $type.text, $expression.expr); }
+    | ID '=' expression { $expr = new AssignmentExpr($ID.text, null, $expression.expr); }
     ;
+
 
 expression returns [Expr expr] // Stay with 'expression'
     : '(' expression ')'   { $expr = $expression.expr; }
@@ -179,6 +181,8 @@ ifelse returns [Expr expr]
     ;
 
 
+
+
 RANGE_OP: '..';
 DOT_OP: '.';
 LBRACK: '[' ; // Left bracket
@@ -197,3 +201,4 @@ WS: [ \t\r\n]+ -> skip ;                // Skip whitespace
 COMMENT: '/*' .*? '*/' -> skip ;        // Skip block comments
 LINE_COMMENT: '//' ~[\r\n]* -> skip ;   // Skip line comments
 DOUBLE: [0-9]+ '.' [0-9]+ | '0' '.' [0-9]+;
+type: 'Int' | 'String' | 'Boolean' | 'Double' ;
