@@ -1,5 +1,6 @@
 package backend
 
+
 abstract class Expr {
     abstract fun eval(runtime:Runtime):Data
 }
@@ -103,12 +104,14 @@ class ArrayExpr(val elements: List<Expr>) : Expr() {
 }
 
 // An expression representing an assignment
-class AssignmentExpr(val symbol:String, val expr:Expr): Expr() {
-    override fun eval(runtime:Runtime): Data
-    = expr.eval(runtime).apply {
-        runtime.symbolTable.put(symbol, this)
+class AssignmentExpr(val name: String, val type: String?, val expr: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val value = expr.eval(runtime)
+        runtime.setVariable(name, type, value)
+        return value
     }
 }
+
 
 // An expression representing a variable reference
 class VariableExpr(val name: String) : Expr() {
@@ -411,3 +414,6 @@ class LambdaExpr(
         return body.eval(lambdaRuntime)
     }
 }
+
+
+
