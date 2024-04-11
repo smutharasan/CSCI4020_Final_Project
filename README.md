@@ -3,7 +3,7 @@
 ## Group Members
 - Foo bar            (100x ... )
 - Supriya Mutharasan (100770289)
-- Foo bar            (100x ... )
+- Michael Cultrera   (100699912)
 
 ## How to run this project 
 
