@@ -51,8 +51,8 @@ expression returns [Expr expr] // Stay with 'expression'
     | left=expression op=('+'|'-') right=expression { 
         $expr = new Arithmetics($op.text.equals("+") ? Operator.Add : Operator.Sub, $left.expr, $right.expr); 
     }
-    | expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
-        $expr = new MethodCallExpr($expression.expr, $ID.text, $arguments.args);
+    | left=expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
+        $expr = new MethodCallExpr($left.expr, $ID.text, $arguments.args);
     }
     | left=expression AND_OP right=expression {
         $expr = new LogicalAndExpr($left.expr, $right.expr);
