@@ -52,7 +52,7 @@ expression returns [Expr expr] // Stay with 'expression'
     | left=expression op=('+'|'-') right=expression { 
         $expr = new Arithmetics($op.text.equals("+") ? Operator.Add : Operator.Sub, $left.expr, $right.expr); 
     }
-    | left=expression '[' givenIndex=expression ']' { $expr = new ArrayAccessExpr($left.expr, $givenIndex.expr); }
+    | left=expression '[' givenIndex=expression ']' { $expr = new AccessExpr($left.expr, $givenIndex.expr); }
     | left=expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
         $expr = new MethodCallExpr($left.expr, $ID.text, $arguments.args);
     }
@@ -87,12 +87,26 @@ parenExpr returns [Expr expr]:
 functionCall returns [Expr expr]:
     ID LPARANTHESIS arguments RPARANTHESIS {$expr = new Invoke($ID.text, $arguments.args);}
     ;
-    
+
+expressionOrBlock returns [Expr expr]
+    : '{' statements+=statement* '}' {
+        List<Expr> exprList = new ArrayList<>();
+        for (StatementContext stmt : $statements) {
+            exprList.add(stmt.expr);
+        }
+        $expr = new Block(exprList);
+    }
+    | singleExpression=expression {
+        $expr = $singleExpression.expr;
+    }
+    ;
+
 value returns [Expr expr]
     : NUMBER { $expr = new IntExpr($NUMBER.text); } // Directly pass the string
     | STRING { $expr = new StringExpr($STRING.text.substring(1, $STRING.text.length() - 1)); }
     | BOOLEAN { $expr = new BooleanLiteral($BOOLEAN.text); }
     | DOUBLE { $expr = new DoubleExpr($DOUBLE.text); }
+    | dictLiteral { $expr = $dictLiteral.expr; } // Add dictionary literals
     | arrayLiteral { $expr = $arrayLiteral.expr; }
     ;
     
@@ -105,6 +119,22 @@ arrayLiteral returns [Expr expr]
         $expr = new ArrayExpr(exprList);
     }
     ;
+    
+
+dictLiteral returns [Expr expr]
+    : '{' (pairs+=keyValuePair (COMMA pairs+=keyValuePair)*)? '}' {
+        Map<Expr, Expr> map = new LinkedHashMap<>();
+        for (KeyValuePairContext pair : $pairs) {
+            map.put(pair.key.expr, pair.val.expr);
+        }
+        $expr = new DictExpr(map);
+    }
+    ;
+
+keyValuePair returns [KeyValuePair pair]
+    : key=expression COLON val=expression { $pair = new KeyValuePair($key.expr, $val.expr); }
+    ;
+
     
 loop returns [Expr expr]
     : 'for' '(' ID 'in' startexpr=expression RANGE_OP endexpr=expression ')' '{' statements+=statement* '}' {
@@ -208,6 +238,7 @@ DOT_OP: '.';
 AND_OP: '&&';
 OR_OP: '||';
 NOT_OP: '!';
+COLON: ':';
 
 LBRACK: '[' ; // Left bracket
 RBRACK: ']' ; // Right bracket

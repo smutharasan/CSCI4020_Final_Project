@@ -103,18 +103,40 @@ class ArrayExpr(val elements: List<Expr>) : Expr() {
     }
 }
 
-class ArrayAccessExpr(val array: Expr, val index: Expr) : Expr() {
+class AccessExpr(val target: Expr, val index: Expr) : Expr() {
     override fun eval(runtime: Runtime): Data {
-        val arrayData = array.eval(runtime)
+        val targetData = target.eval(runtime)
         val indexData = index.eval(runtime)
 
-        if (arrayData !is ArrayData || indexData !is IntData) {
-            throw RuntimeException("Array index operation requires an array and an integer index")
+        // Handling arrays and dictionaries
+        return when (targetData) {
+            is ArrayData -> {
+                if (indexData !is IntData) {
+                    throw RuntimeException("Array index must be an integer")
+                }
+                targetData.get(indexData.value)
+            }
+            is DictData -> {
+                targetData.get(indexData) ?: throw RuntimeException("Key not found: $indexData")
+            }
+            else -> throw RuntimeException("Access operation not supported on this type")
         }
-
-        return arrayData.get(indexData.value)
     }
 }
+
+class DictExpr(val map: Map<Expr, Expr>) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val resultMap = mutableMapOf<Data, Data>()
+        map.entries.forEach { entry ->
+            val keyData = entry.key.eval(runtime)
+            val valueData = entry.value.eval(runtime)
+            resultMap[keyData] = valueData
+        }
+        return DictData(resultMap)
+    }
+}
+
+class KeyValuePair(val key: Expr, val value: Expr)
 
 // An expression representing an assignment
 class AssignmentExpr(val name: String, val type: String?, val expr: Expr) : Expr() {
@@ -308,28 +330,60 @@ class MethodCallExpr(
     val arguments: List<Expr> // The arguments passed to the method
 ) : Expr() {
     override fun eval(runtime: Runtime): Data {
-        println(runtime) 
         val targetData = target.eval(runtime)
 
-        if (targetData !is ArrayData) {
-            throw IllegalArgumentException("This is not a array. Please check again")
+        return when (targetData) {
+            is ArrayData -> handleArrayMethods(targetData, methodName, arguments, runtime)
+            is DictData -> handleDictMethods(targetData, methodName, arguments, runtime)
+            else -> throw IllegalArgumentException("The target for method '$methodName' must be an array or a dictionary. Found: ${targetData::class.simpleName}")
         }
+    }
 
-        var result: Data = None
+    // Depending on the need, change visibility to `internal` or keep `public`
+    fun handleArrayMethods(arrayData: ArrayData, methodName: String, arguments: List<Expr>, runtime: Runtime): Data {
         return when (methodName) {
-                "size" -> {
-                    // Ensure that no arguments are provided for the size method
-                    if (arguments.isNotEmpty()) {
-                        throw IllegalArgumentException("size method does not take arguments")
-                    }
-                    IntData(targetData.size())
-                }
-                // Add more cases here for other array methods or methods on different types
-                else -> throw UnsupportedOperationException("Method $methodName is not supported on arrays")
+            "size" -> {
+                if (arguments.isNotEmpty()) throw IllegalArgumentException("size method does not take arguments")
+                IntData(arrayData.elements.size)
+            }
+            else -> throw UnsupportedOperationException("Method '$methodName' is not supported on arrays")
         }
+    }
 
+    // Depending on the need, change visibility to `internal` or keep `public`
+    fun handleDictMethods(dictData: DictData, methodName: String, arguments: List<Expr>, runtime: Runtime): Data {
+        return when (methodName) {
+            "put" -> {
+                requireArgumentsSize(arguments, 2, methodName)
+                val key = arguments[0].eval(runtime)
+                val value = arguments[1].eval(runtime)
+                dictData.put(key, value)
+                None
+            }
+            "remove" -> {
+                requireArgumentsSize(arguments, 1, methodName)
+                val key = arguments[0].eval(runtime)
+                dictData.remove(key) ?: None
+            }
+            "keys" -> {
+                requireArgumentsSize(arguments, 0, methodName)
+                dictData.keys()
+            }
+            "values" -> {
+                requireArgumentsSize(arguments, 0, methodName)
+                dictData.values()
+            }
+            else -> throw UnsupportedOperationException("Method '$methodName' is not supported on dictionaries")
+        }
+    }
+
+    fun requireArgumentsSize(arguments: List<Expr>, requiredSize: Int, methodName: String) {
+        if (arguments.size != requiredSize) {
+            throw IllegalArgumentException("The method '$methodName' requires exactly $requiredSize arguments.")
+        }
     }
 }
+
 
 
 
@@ -404,31 +458,6 @@ class While(val cond: Expr, val body: Expr) : Expr() {
     }
 }
 
-
-class LambdaExpr(
-    val parameters: List<String>, // Parameters accepted by the lambda
-    val body: Expr // The body of the lambda, potentially a Block for multiple expressions
-) : Expr() {
-    override fun eval(runtime: Runtime): Data {
-        // This method would be used if the lambda is being evaluated directly,
-        // but typically we'll use `invoke` with arguments for lambdas.
-        throw UnsupportedOperationException("Direct evaluation of a lambda expression is not supported.")
-    }
-
-    fun invoke(runtime: Runtime, args: List<Data>): Data {
-        if (args.size != parameters.size) {
-            throw IllegalArgumentException("Lambda expected ${parameters.size} arguments, but got ${args.size}.")
-        }
-        // Create a new map of bindings from parameters to argument values
-        val bindings = parameters.zip(args).associate { it.first to it.second }
-        // Create a new subscope in the runtime for the lambda execution
-        val lambdaRuntime = runtime.subscope(bindings)
-        // Evaluate the lambda body in the new subscope and return the result
-        return body.eval(lambdaRuntime)
-    }
-}
-
-
 class ForeachExpr(
     val loopVarName: String, 
     val collectionExpr: Expr, 
@@ -456,4 +485,3 @@ class ForeachExpr(
         return lastResult
     }
 }
-

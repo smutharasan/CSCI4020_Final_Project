@@ -69,3 +69,20 @@ class ArrayData(val elements: List<Data>) : Data() {
         return elements.joinToString(prefix = "[", postfix = "]", transform = Data::toString)
     }
 }
+
+class DictData(val elements: MutableMap<Data, Data>) : Data() {
+    fun get(key: Data): Data = elements[key] ?: throw RuntimeException("Key not found: $key")
+    fun put(key: Data, value: Data) {
+            elements[key] = value
+    }
+    
+    fun remove(key: Data): Data? = elements.remove(key)
+
+    fun keys(): Data = ArrayData(elements.keys.toList())
+
+    fun values(): Data = ArrayData(elements.values.toList())
+    
+    override fun toString(): String = elements.entries.joinToString(prefix = "{", postfix = "}", separator = ", ") {
+        "${it.key.toString()}: ${it.value.toString()}"
+    }
+}
