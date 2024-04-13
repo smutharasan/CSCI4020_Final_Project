@@ -1,0 +1,11 @@
+// Instructions to run this program 
+// make a copy of this file and put it in the target program
+// cd ./target
+// java -cp /antlr-4.11.1-complete.jar:/kotlinc/lib/kotlin-stdlib.jar:. org.antlr.v4.gui.TestRig PL program -tree < view_parsers.txt 
+
+
+alpha = 4334.555;
+g = [2,3,4,5,"hello world",alpha];
+beta = g[1];
+print(beta);
+

@@ -32,12 +32,15 @@ statement returns [Expr expr]
     | function { $expr = $function.funcResult;}
     | ifelse { $expr = $ifelse.expr; }
     | whileloop { $expr = $whileloop.expr; }
+    | foreach { $expr = $foreach.expr; }  
     ;
 
     
 assignment returns [Expr expr]
-    : ID '=' expression { $expr = new AssignmentExpr($ID.text, $expression.expr); }
+    : type ID  '=' expression { $expr = new AssignmentExpr($ID.text, $type.text, $expression.expr); }
+    | ID '=' expression { $expr = new AssignmentExpr($ID.text, null, $expression.expr); }
     ;
+
 
 expression returns [Expr expr] // Stay with 'expression'
     : '(' expression ')'   { $expr = $expression.expr; }
@@ -49,8 +52,9 @@ expression returns [Expr expr] // Stay with 'expression'
     | left=expression op=('+'|'-') right=expression { 
         $expr = new Arithmetics($op.text.equals("+") ? Operator.Add : Operator.Sub, $left.expr, $right.expr); 
     }
-    | expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
-        $expr = new MethodCallExpr($expression.expr, $ID.text, $arguments.args);
+    | left=expression '[' givenIndex=expression ']' { $expr = new ArrayAccessExpr($left.expr, $givenIndex.expr); }
+    | left=expression DOT_OP ID LPARANTHESIS arguments RPARANTHESIS {
+        $expr = new MethodCallExpr($left.expr, $ID.text, $arguments.args);
     }
     | left=expression AND_OP right=expression {
         $expr = new LogicalAndExpr($left.expr, $right.expr);
@@ -93,7 +97,7 @@ value returns [Expr expr]
     ;
     
 arrayLiteral returns [Expr expr]
-    : LBRACK (elements+=expression (COMMA elements+=expression)*)? RBRACK {
+    : '{' (elements+=expression (COMMA elements+=expression)*)? '}' {
         List<Expr> exprList = new ArrayList<>();
         for (ExpressionContext element : $elements) {
             exprList.add(element.expr); // Convert each ExpressionContext to Expr
@@ -111,7 +115,18 @@ loop returns [Expr expr]
         $expr = new ForLoopExpr($ID.text, $startexpr.expr, $endexpr.expr, new Block(exprList));
       }
     ;
-    
+
+foreach returns [Expr expr]
+    : 'foreach' '(' ID 'in' collection=expression ')' '{' statements+=statement* '}' {
+        List<Expr> stmtList = new ArrayList<>();
+        for (StatementContext stmt : $statements) {
+            stmtList.add(stmt.expr);
+        }
+        $expr = new ForeachExpr($ID.text, $collection.expr, new Block(stmtList));
+      }
+    ;
+
+
 // Defining the whileloop rule
 whileloop returns [Expr expr]
     : 'while' '(' condition=expression ')' '{' statements+=statement* '}' {
@@ -186,6 +201,8 @@ ifelse returns [Expr expr]
     ;
 
 
+
+
 RANGE_OP: '..';
 DOT_OP: '.';
 AND_OP: '&&';
@@ -208,3 +225,4 @@ WS: [ \t\r\n]+ -> skip ;                // Skip whitespace
 COMMENT: '/*' .*? '*/' -> skip ;        // Skip block comments
 LINE_COMMENT: '//' ~[\r\n]* -> skip ;   // Skip line comments
 DOUBLE: [0-9]+ '.' [0-9]+ | '0' '.' [0-9]+;
+type: 'Int' | 'String' | 'Boolean' | 'Double' ;

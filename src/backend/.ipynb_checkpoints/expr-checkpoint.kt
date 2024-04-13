@@ -1,5 +1,6 @@
 package backend
 
+
 abstract class Expr {
     abstract fun eval(runtime:Runtime):Data
 }
@@ -102,13 +103,28 @@ class ArrayExpr(val elements: List<Expr>) : Expr() {
     }
 }
 
-// An expression representing an assignment
-class AssignmentExpr(val symbol:String, val expr:Expr): Expr() {
-    override fun eval(runtime:Runtime): Data
-    = expr.eval(runtime).apply {
-        runtime.symbolTable.put(symbol, this)
+class ArrayAccessExpr(val array: Expr, val index: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val arrayData = array.eval(runtime)
+        val indexData = index.eval(runtime)
+
+        if (arrayData !is ArrayData || indexData !is IntData) {
+            throw RuntimeException("Array index operation requires an array and an integer index")
+        }
+
+        return arrayData.get(indexData.value)
     }
 }
+
+// An expression representing an assignment
+class AssignmentExpr(val name: String, val type: String?, val expr: Expr) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val value = expr.eval(runtime)
+        runtime.setVariable(name, type, value)
+        return value
+    }
+}
+
 
 // An expression representing a variable reference
 class VariableExpr(val name: String) : Expr() {
@@ -411,3 +427,33 @@ class LambdaExpr(
         return body.eval(lambdaRuntime)
     }
 }
+
+
+class ForeachExpr(
+    val loopVarName: String, 
+    val collectionExpr: Expr, 
+    val body: Expr
+) : Expr() {
+    override fun eval(runtime: Runtime): Data {
+        val collectionData = collectionExpr.eval(runtime)
+        
+        if (collectionData !is ArrayData) {
+            throw IllegalArgumentException("Foreach loop requires an array to iterate over, got ${collectionData::class.simpleName}")
+        }
+
+        var lastResult: Data = None  // Use the None singleton for initial value.
+
+        // Iterate over each element in the array.
+        for (element in collectionData.elements) {
+            // Set the loop variable in the current scope.
+            runtime.symbolTable[loopVarName] = element
+            // Execute the body of the loop.
+            lastResult = body.eval(runtime)
+        }
+
+        runtime.symbolTable.remove(loopVarName)
+        // Return the last evaluated result or some other value depending on your language design.
+        return lastResult
+    }
+}
+
