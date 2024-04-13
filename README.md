@@ -1,7 +1,7 @@
 # CSCI 4020 - Final Project 
 
 ## Group Members
-- Foo bar            (100x ... )
+- Jack               (100x ... )
 - Supriya Mutharasan (100770289)
 - Michael Cultrera   (100699912)
 
