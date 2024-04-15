@@ -1,7 +1,7 @@
 # CSCI 4020 - Final Project 
 
 ## Group Members
-- Jack               (100x ... )
+- Jack Bowman               (100x ... )
 - Supriya Mutharasan (100770289)
 - Michael Cultrera   (100699912)
 
@@ -21,7 +21,7 @@ Implement programs in the file: final_project.ipynb and click run to see some ma
 
 [Google Form Submission Link](https://forms.gle/JZpnLgfghEeXSP2j8)
 
-[Tutorial Video](www.google.ca)
+[Tutorial Video](https://youtu.be/CExD57jAIOg)
 
 ## Developer notes: 
 
