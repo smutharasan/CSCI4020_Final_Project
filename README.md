@@ -1,7 +1,7 @@
 # CSCI 4020 - Final Project 
 
 ## Group Members
-- Jack Bowman               (100x ... )
+- Jack Bowman               (100752381)
 - Supriya Mutharasan (100770289)
 - Michael Cultrera   (100699912)
 
